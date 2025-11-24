@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tournament Details - BTTC Round Robin</title>
+    {% if google_analytics_id %}
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id={{ google_analytics_id }}"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', '{{ google_analytics_id }}');
+    </script>
+    {% endif %}
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        nav {
+            background: #f8f9fa;
+            border-bottom: 2px solid #dee2e6;
+            padding: 15px 0;
+            margin-bottom: 30px;
+        }
+
+        nav .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+
+        nav a {
+            color: #444;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 1.1em;
+            padding: 8px 15px;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+
+        nav a:hover {
+            background: #e9ecef;
+            color: #607890;
+        }
+
+        nav a.active {
+            color: #607890;
+            border-bottom: 2px solid #607890;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 15px 20px;
+        }
+
+        header {
+            background: white;
+            padding: 15px 20px;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 15px;
+        }
+
+        header h1 {
+            color: #607890;
+            margin-bottom: 8px;
+            font-size: 1.5em;
+        }
+
+        .tournament-info {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .info-item {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .info-label {
+            font-size: 0.75em;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .info-value {
+            font-size: 1em;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .loading, .error {
+            text-align: center;
+            padding: 40px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .error {
+            background: #dc3545;
+            color: white;
+        }
+
+        .groups-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .group-card {
+            background: white;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .group-header {
+            background: #607890;
+            color: white;
+            padding: 10px 15px;
+            font-size: 1.1em;
+            font-weight: 600;
+        }
+
+        .group-content {
+            padding: 10px;
+        }
+
+        .tournament-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            font-size: 0.85em;
+            margin-bottom: 15px;
+        }
+
+        .tournament-table thead {
+            background: #607890;
+            color: white;
+        }
+
+        .tournament-table th {
+            padding: 6px 5px;
+            text-align: center;
+            font-weight: 600;
+            border: 1px solid #4a5a6e;
+            font-size: 0.8em;
+        }
+
+        .tournament-table th.number-col {
+            min-width: 35px;
+            text-align: center;
+        }
+
+        .tournament-table th.name-col {
+            text-align: left;
+            min-width: 120px;
+        }
+
+        .tournament-table th.rating-col {
+            min-width: 65px;
+        }
+
+        .tournament-table th.opponent-col {
+            min-width: 40px;
+            font-size: 0.75em;
+        }
+
+        .tournament-table th.stats-col {
+            min-width: 55px;
+        }
+
+        .tournament-table td {
+            padding: 5px 4px;
+            text-align: center;
+            border: 1px solid #e0e0e0;
+            font-size: 0.9em;
+        }
+
+        .tournament-table tbody tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        .tournament-table tbody tr:hover {
+            background: #e8f0f8;
+        }
+
+        .tournament-table td.number-cell {
+            text-align: center;
+            font-weight: 600;
+            color: #607890;
+        }
+
+        .tournament-table td.name-cell {
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+            position: sticky;
+            left: 35px;
+            background: inherit;
+            z-index: 1;
+            font-size: 0.9em;
+        }
+
+        .tournament-table tbody tr:hover td.name-cell {
+            background: #e8f0f8;
+        }
+
+        .player-link {
+            color: #607890;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .player-link:hover {
+            color: #4a5a6e;
+            text-decoration: underline;
+        }
+
+        .tournament-table td.rating-cell {
+            font-weight: 600;
+            color: #607890;
+        }
+
+        .tournament-table td.game-score {
+            font-weight: 600;
+        }
+
+        .tournament-table td.game-score.win {
+            color: #28a745;
+        }
+
+        .tournament-table td.game-score.loss {
+            color: #dc3545;
+        }
+
+        .tournament-table td.rating-change-cell {
+            font-weight: 600;
+        }
+
+        .tournament-table td.rating-change-cell.positive {
+            color: #28a745;
+        }
+
+        .tournament-table td.rating-change-cell.negative {
+            color: #dc3545;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            margin-bottom: 15px;
+        }
+
+        .loading, .error {
+            text-align: center;
+            padding: 20px;
+            background: white;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 10px;
+            color: #607890;
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.2s;
+            font-size: 0.95em;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #607890;
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.2s;
+        }
+
+        .back-link:hover {
+            color: #4a5a6e;
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .players-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .matches-table {
+                font-size: 0.9em;
+            }
+
+            .matches-table th,
+            .matches-table td {
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="container">
+            <a href="/">Players</a>
+            <a href="/tournaments" class="active">Tournaments</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <a href="/tournaments" class="back-link">← Back to Tournaments</a>
+        
+        <div id="loading" class="loading">Loading tournament details...</div>
+        <div id="error" class="error" style="display: none;"></div>
+        <div id="tournamentContent" style="display: none;"></div>
+    </div>
+
+    <script>
+        const tournamentId = {{ tournament_id }};
+
+        async function loadTournamentDetails() {
+            try {
+                const response = await fetch(`/api/tournament/${tournamentId}`);
+                const data = await response.json();
+
+                if (data.error) {
+                    showError(data.error);
+                    return;
+                }
+
+                displayTournament(data);
+                document.getElementById('loading').style.display = 'none';
+            } catch (error) {
+                showError('Failed to load tournament details: ' + error.message);
+            }
+        }
+
+        function showError(message) {
+            document.getElementById('loading').style.display = 'none';
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return 'Unknown';
+            try {
+                const date = new Date(dateStr);
+                return date.toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+            } catch (e) {
+                return dateStr;
+            }
+        }
+
+        function displayTournament(data) {
+            const container = document.getElementById('tournamentContent');
+            const tournament = data.tournament;
+            const groups = data.groups || [];
+
+            let html = '';
+
+            // Tournament header
+            html += '<header>';
+            html += `<h1>Tournament: ${formatDate(tournament.date)}</h1>`;
+            html += '<div class="tournament-info">';
+            html += `<div class="info-item"><span class="info-label">Date</span><span class="info-value">${formatDate(tournament.date)}</span></div>`;
+            if (tournament.source_url) {
+                html += `<div class="info-item"><span class="info-label">Source</span><span class="info-value"><a href="${tournament.source_url}" target="_blank" style="color: #607890;">View PDF</a></span></div>`;
+            }
+            html += `<div class="info-item"><span class="info-label">Groups</span><span class="info-value">${groups.length}</span></div>`;
+            const totalPlayers = groups.reduce((sum, g) => sum + (g.players?.length || 0), 0);
+            const totalMatches = groups.reduce((sum, g) => sum + (g.matches?.length || 0), 0);
+            html += `<div class="info-item"><span class="info-label">Total Players</span><span class="info-value">${totalPlayers}</span></div>`;
+            html += `<div class="info-item"><span class="info-label">Total Matches</span><span class="info-value">${totalMatches}</span></div>`;
+            html += '</div>';
+            html += '</header>';
+
+            // Groups
+            html += '<div class="groups-container">';
+            groups.forEach(group => {
+                html += '<div class="group-card">';
+                html += `<div class="group-header">Group #${group.group_number}</div>`;
+                html += '<div class="group-content">';
+
+                if (group.players && group.players.length > 0) {
+                    // Build player lookup and match matrix
+                    const players = group.players;
+                    const matches = group.matches || [];
+                    
+                    // Create player index map
+                    const playerIndexMap = {};
+                    players.forEach((p, idx) => {
+                        playerIndexMap[p.player_id] = idx;
+                    });
+                    
+                    // Build games won/lost matrix and rating change matrix
+                    const gamesMatrix = [];
+                    const ratingChangeMatrix = [];
+                    
+                    players.forEach((player, i) => {
+                        gamesMatrix[i] = [];
+                        ratingChangeMatrix[i] = [];
+                        players.forEach((opponent, j) => {
+                            gamesMatrix[i][j] = null;
+                            ratingChangeMatrix[i][j] = null;
+                        });
+                    });
+                    
+                    // Fill matrix from matches
+                    matches.forEach(match => {
+                        const p1Idx = playerIndexMap[match.player1_id];
+                        const p2Idx = playerIndexMap[match.player2_id];
+                        
+                        if (p1Idx !== undefined && p2Idx !== undefined) {
+                            const p1Score = match.player1_score || 0;
+                            const p2Score = match.player2_score || 0;
+                            
+                            // Store game scores (p1 vs p2)
+                            gamesMatrix[p1Idx][p2Idx] = { p1: p1Score, p2: p2Score };
+                            gamesMatrix[p2Idx][p1Idx] = { p1: p2Score, p2: p1Score };
+                            
+                            // Calculate rating change (simplified - would need actual calculation)
+                            // For now, we'll leave this as null or calculate if we have the data
+                        }
+                    });
+                    
+                    // Build table
+                    html += '<div class="table-container">';
+                    html += '<table class="tournament-table">';
+                    html += '<thead>';
+                    html += '<tr>';
+                    html += '<th class="number-col">#</th>';
+                    html += '<th class="name-col">Name</th>';
+                    html += '<th class="rating-col">Rating<br>Pre</th>';
+                    html += '<th class="rating-col">Rating<br>Post</th>';
+                    
+                    // Opponent columns
+                    players.forEach((_, idx) => {
+                        html += `<th class="opponent-col">${idx + 1}</th>`;
+                    });
+                    
+                    html += '<th class="stats-col">Matches<br>Won</th>';
+                    html += '<th class="stats-col">Games<br>Won</th>';
+                    
+                    html += '</tr>';
+                    html += '</thead>';
+                    html += '<tbody>';
+                    
+                    players.forEach((player, i) => {
+                        html += '<tr>';
+                        
+                        // Player Number
+                        html += `<td class="number-cell">${player.player_number || (i + 1)}</td>`;
+                        
+                        // Name (as link)
+                        const playerName = escapeHtml(player.player_name || 'Unknown');
+                        html += `<td class="name-cell"><a href="/player/${encodeURIComponent(player.player_name)}" class="player-link">${playerName}</a></td>`;
+                        
+                        // Rating Pre
+                        html += `<td class="rating-cell">${player.rating_pre !== null && player.rating_pre !== undefined ? player.rating_pre : '—'}</td>`;
+                        
+                        // Rating Post
+                        html += `<td class="rating-cell">${player.rating_post !== null && player.rating_post !== undefined ? player.rating_post : '—'}</td>`;
+                        
+                        // Games Won/Lost against each opponent
+                        players.forEach((opponent, j) => {
+                            if (i === j) {
+                                html += '<td>+</td>';
+                            } else {
+                                const gameData = gamesMatrix[i][j];
+                                if (gameData) {
+                                    const scoreClass = gameData.p1 > gameData.p2 ? 'win' : 'loss';
+                                    html += `<td class="game-score ${scoreClass}">${gameData.p1}<br>${gameData.p2}</td>`;
+                                } else {
+                                    html += '<td>—</td>';
+                                }
+                            }
+                        });
+                        
+                        // Matches Won
+                        html += `<td>${player.matches_won || 0}</td>`;
+                        
+                        // Games Won
+                        html += `<td>${player.games_won || 0}</td>`;
+                        
+                        html += '</tr>';
+                    });
+                    
+                    html += '</tbody>';
+                    html += '</table>';
+                    html += '</div>';
+                }
+
+                html += '</div>';
+                html += '</div>';
+            });
+            html += '</div>';
+
+            container.innerHTML = html;
+            container.style.display = 'block';
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Load tournament details on page load
+        loadTournamentDetails();
+    </script>
+</body>
+</html>
+

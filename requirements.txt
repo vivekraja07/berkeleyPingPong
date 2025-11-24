@@ -7,4 +7,13 @@ PyPDF2==3.0.1
 pdfplumber==0.10.3
 pandas==2.1.0
 flask==3.0.0
+gunicorn==21.2.0
+
+# Optional: For OCR support on image-based PDFs
+# Install with: pip install pytesseract pillow
+# Also requires tesseract-ocr system package:
+#   macOS: brew install tesseract
+#   Ubuntu: sudo apt-get install tesseract-ocr
+# pytesseract==0.3.10
+# Pillow==10.0.0
 

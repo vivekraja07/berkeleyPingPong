@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tournaments - Berkeley Table Tennis</title>
+    {% if google_analytics_id %}
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id={{ google_analytics_id }}"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', '{{ google_analytics_id }}');
+    </script>
+    {% endif %}
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lobster|PT+Sans+Narrow:400,700">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'PT Sans Narrow', sans-serif;
+            background: #ffffff;
+            color: #444;
+            line-height: 1.4;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Navigation */
+        nav {
+            background: #f8f9fa;
+            border-bottom: 2px solid #dee2e6;
+            padding: 15px 0;
+            margin-bottom: 30px;
+        }
+
+        nav .container {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+
+        nav a {
+            color: #444;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 1.1em;
+            padding: 8px 15px;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+
+        nav a:hover {
+            background: #e9ecef;
+            color: #607890;
+        }
+
+        nav a.active {
+            color: #607890;
+            border-bottom: 2px solid #607890;
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 20px 0;
+        }
+
+        header h1 {
+            font-family: 'Lobster', cursive;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            color: #607890;
+        }
+
+        header p {
+            font-size: 1.2em;
+            color: #444;
+        }
+
+        /* Tournaments List */
+        .tournaments-list-container {
+            background: #fff;
+            border: 1px solid #dee2e6;
+            margin-top: 20px;
+            overflow-x: auto;
+        }
+
+        .tournaments-summary {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            border-left: 4px solid #607890;
+        }
+
+        .tournaments-summary h3 {
+            margin: 0 0 10px 0;
+            color: #607890;
+            font-size: 1.1em;
+        }
+
+        .tournaments-summary .summary-stats {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .tournaments-summary .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tournaments-summary .stat-label {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .tournaments-summary .stat-value {
+            font-weight: 700;
+            color: #444;
+        }
+
+        .tournaments-summary .stat-value.filterable {
+            cursor: pointer;
+            text-decoration: underline;
+            transition: opacity 0.2s;
+        }
+
+        .tournaments-summary .stat-value.filterable:hover {
+            opacity: 0.7;
+        }
+
+        .tournaments-summary .stat-value.filter-active {
+            background: #dc3545;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+
+        .tournaments-list {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .tournaments-list thead {
+            background: #f8f9fa;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .tournaments-list th {
+            padding: 15px 12px;
+            text-align: left;
+            font-weight: 700;
+            color: #444;
+            border-bottom: 2px solid #607890;
+            font-size: 1em;
+        }
+
+        .tournaments-list th.sortable {
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+            padding-right: 25px;
+            transition: background-color 0.2s;
+        }
+
+        .tournaments-list th.sortable:hover {
+            background-color: #e9ecef;
+        }
+
+        .tournaments-list th.sortable .sort-indicator {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.8em;
+            color: #607890;
+            opacity: 0.5;
+        }
+
+        .tournaments-list th.sortable.sort-asc .sort-indicator::after {
+            content: '▲';
+            opacity: 1;
+        }
+
+        .tournaments-list th.sortable.sort-desc .sort-indicator::after {
+            content: '▼';
+            opacity: 1;
+        }
+
+        .tournaments-list tbody tr {
+            border-bottom: 1px solid #dee2e6;
+            transition: background-color 0.2s;
+        }
+
+        .tournaments-list tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .tournaments-list tbody tr.parsing-failed {
+            opacity: 0.7;
+            background-color: #fff3cd;
+        }
+
+        .tournaments-list tbody tr.parsing-failed:hover {
+            opacity: 1;
+            background-color: #ffeaa7;
+        }
+
+        .parse-note {
+            font-size: 0.85em;
+            color: #dc3545;
+            margin-left: 8px;
+            cursor: help;
+            font-weight: 600;
+        }
+
+        .tournament-link {
+            color: #607890;
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.2s;
+        }
+
+        .tournament-link:hover {
+            color: #4a5a6e;
+            text-decoration: underline;
+        }
+
+        .tournaments-list td {
+            padding: 12px;
+            color: #444;
+            vertical-align: middle;
+        }
+
+        .tournaments-list .date-cell {
+            font-weight: 600;
+            color: #607890;
+            width: 200px;
+        }
+
+        .tournaments-list .stat-cell {
+            text-align: right;
+            width: 150px;
+            font-weight: 600;
+            color: #444;
+        }
+
+        /* Loading and Error */
+        .loading {
+            text-align: center;
+            color: #444;
+            font-size: 1.2em;
+            padding: 40px;
+        }
+
+        .error {
+            background: #dc3545;
+            color: white;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 2em;
+            }
+
+            nav .container {
+                gap: 15px;
+            }
+
+            nav a {
+                font-size: 0.95em;
+                padding: 6px 12px;
+            }
+
+            .tournaments-list th,
+            .tournaments-list td {
+                padding: 8px 6px;
+                font-size: 0.9em;
+            }
+
+            .tournaments-list .date-cell {
+                width: 150px;
+            }
+
+            .tournaments-list .stat-cell {
+                width: 100px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <nav>
+        <div class="container">
+            <a href="/">Players</a>
+            <a href="/tournaments" class="active">Tournaments</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <header>
+            <h1>Tournaments</h1>
+            <p>All Round Robin Tournaments</p>
+        </header>
+
+        <div id="loading" class="loading">Loading tournaments...</div>
+        <div id="error" class="error" style="display: none;"></div>
+        <div id="tournamentsListContainer" class="tournaments-list-container" style="display: none;"></div>
+    </div>
+
+    <script>
+        // Store original tournaments list for filtering
+        let allTournaments = [];
+        let showIssuesOnly = false;
+        let sortColumn = null; // 'players' or 'matches'
+        let sortDirection = 'asc'; // 'asc' or 'desc'
+
+        // Load tournaments on page load
+        async function loadTournaments() {
+            try {
+                const response = await fetch('/api/tournaments');
+                const data = await response.json();
+
+                if (data.error) {
+                    showError(data.error);
+                    return;
+                }
+
+                allTournaments = data.tournaments || [];
+                displayTournaments(allTournaments);
+                document.getElementById('loading').style.display = 'none';
+            } catch (error) {
+                showError('Failed to load tournaments: ' + error.message);
+            }
+        }
+
+        // Get current filtered tournaments list
+        function getFilteredTournaments() {
+            if (showIssuesOnly) {
+                return allTournaments.filter(t => {
+                    const status = t.parsing_status || 'success';
+                    return status !== 'success';
+                });
+            }
+            return allTournaments;
+        }
+
+        // Filter tournaments to show only those with issues
+        function toggleIssuesFilter() {
+            showIssuesOnly = !showIssuesOnly;
+            displayTournaments(getFilteredTournaments());
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return 'N/A';
+            try {
+                // Parse date string (YYYY-MM-DD) as local date to avoid timezone shift
+                const dateParts = dateStr.split('T')[0].split('-');
+                if (dateParts.length === 3) {
+                    const year = parseInt(dateParts[0]);
+                    const month = parseInt(dateParts[1]) - 1; // Month is 0-indexed
+                    const day = parseInt(dateParts[2]);
+                    const date = new Date(year, month, day);
+                    if (!isNaN(date.getTime())) {
+                        return date.toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric'
+                        });
+                    }
+                }
+            } catch (e) {
+                // Keep original if parsing fails
+            }
+            return dateStr;
+        }
+
+        function displayTournaments(tournaments) {
+            const container = document.getElementById('tournamentsListContainer');
+            container.innerHTML = '';
+
+            if (tournaments.length === 0) {
+                container.innerHTML = '<div class="loading">No tournaments found</div>';
+                return;
+            }
+
+            // Calculate summary statistics from ALL tournaments (not filtered)
+            const total = allTournaments.length;
+            // "Complete" = successfully parsed AND has data
+            const successful = allTournaments.filter(t => (t.parsing_status || 'success') === 'success' && (t.num_players || 0) > 0).length;
+            // "Issues" = only actual parsing/validation/db errors (not just missing data)
+            const failed = allTournaments.filter(t => {
+                const status = t.parsing_status || 'success';
+                return status !== 'success';  // Only count actual errors, not missing data
+            }).length;
+
+            // Build summary HTML
+            let summaryHtml = '<div class="tournaments-summary">';
+            summaryHtml += '<h3>Tournament Summary</h3>';
+            if (showIssuesOnly) {
+                summaryHtml += '<div style="margin-bottom: 10px; color: #dc3545; font-weight: 600;">Showing only tournaments with issues. Click "Issues" again to show all.</div>';
+            }
+            summaryHtml += '<div class="summary-stats">';
+            summaryHtml += `<div class="stat-item"><span class="stat-label">Total:</span><span class="stat-value">${total}</span></div>`;
+            summaryHtml += `<div class="stat-item"><span class="stat-label">✅ Complete:</span><span class="stat-value">${successful}</span></div>`;
+            const issuesClass = failed > 0 ? 'filterable' : '';
+            const issuesActiveClass = showIssuesOnly ? 'filter-active' : '';
+            summaryHtml += `<div class="stat-item"><span class="stat-label">⚠️ Issues:</span><span id="issuesFilter" class="stat-value ${issuesClass} ${issuesActiveClass}" style="color: #dc3545;" ${failed > 0 ? 'title="Click to filter tournaments with issues"' : ''}>${failed}</span></div>`;
+            summaryHtml += '</div></div>';
+
+            // Sort tournaments if needed
+            let sortedTournaments = [...tournaments];
+            if (sortColumn) {
+                sortedTournaments.sort((a, b) => {
+                    let aVal, bVal;
+                    if (sortColumn === 'players') {
+                        aVal = a.num_players || 0;
+                        bVal = b.num_players || 0;
+                    } else if (sortColumn === 'matches') {
+                        aVal = a.num_matches || 0;
+                        bVal = b.num_matches || 0;
+                    } else {
+                        return 0;
+                    }
+                    
+                    // Handle cases where values are '—' or non-numeric
+                    if (aVal === '—' || isNaN(aVal)) aVal = -1;
+                    if (bVal === '—' || isNaN(bVal)) bVal = -1;
+                    
+                    if (sortDirection === 'asc') {
+                        return aVal - bVal;
+                    } else {
+                        return bVal - aVal;
+                    }
+                });
+            }
+
+            // Build HTML
+            let html = summaryHtml + '<table class="tournaments-list">';
+            html += '<thead><tr>';
+            html += '<th class="date-cell">Date</th>';
+            
+            // Players column header with sorting
+            const playersSortClass = sortColumn === 'players' ? `sort-${sortDirection}` : '';
+            html += `<th class="stat-cell sortable ${playersSortClass}" data-sort="players">Players<span class="sort-indicator"></span></th>`;
+            
+            // Matches column header with sorting
+            const matchesSortClass = sortColumn === 'matches' ? `sort-${sortDirection}` : '';
+            html += `<th class="stat-cell sortable ${matchesSortClass}" data-sort="matches">Matches<span class="sort-indicator"></span></th>`;
+            
+            html += '<th class="stat-cell">View PDF</th>';
+            html += '</tr></thead><tbody>';
+
+            sortedTournaments.forEach(tournament => {
+                // Use stored source_url from DB if available, otherwise fall back to generated URL
+                const resultUrl = tournament.source_url || getBerkeleyResultUrl(tournament.tournament_date);
+                const parsingStatus = tournament.parsing_status || 'success';
+                const parseError = tournament.parse_error;
+                const numPlayers = tournament.num_players || 0;
+                const numMatches = tournament.num_matches || 0;
+                
+                // Determine row styling and note based on parsing status
+                let rowClass = '';
+                let note = '';
+                
+                // Always show actual numbers if they exist, even if there's a parsing issue
+                let playersDisplay = (numPlayers && numPlayers > 0) ? numPlayers : '—';
+                let matchesDisplay = (numMatches && numMatches > 0) ? numMatches : '—';
+                
+                if (parsingStatus !== 'success') {
+                    rowClass = 'parsing-failed';
+                    if (parsingStatus === 'parsing_failed') {
+                        note = ' <span class="parse-note" title="' + escapeHtml(parseError || 'Parsing failed') + '">⚠️ Unable to parse</span>';
+                    } else if (parsingStatus === 'validation_failed') {
+                        note = ' <span class="parse-note" title="' + escapeHtml(parseError || 'Validation failed') + '">⚠️ Validation failed</span>';
+                    } else if (parsingStatus === 'db_error') {
+                        note = ' <span class="parse-note" title="' + escapeHtml(parseError || 'Database error') + '">⚠️ Import error</span>';
+                    }
+                }
+                
+                // Only show link if we have a URL
+                let linkHtml = '—';
+                if (resultUrl) {
+                    linkHtml = `<a href="${resultUrl}" target="_blank">View PDF</a>`;
+                }
+                
+                // Make date clickable if we have a tournament ID
+                const tournamentId = tournament.tournament_id;
+                let dateCell = formatDate(tournament.tournament_date) + note;
+                if (tournamentId) {
+                    // Always make dates clickable if we have a tournament ID
+                    dateCell = `<a href="/tournament/${tournamentId}" class="tournament-link">${formatDate(tournament.tournament_date)}</a>${note}`;
+                }
+                
+                html += `<tr class="${rowClass}">`;
+                html += `<td class="date-cell">${dateCell}</td>`;
+                html += `<td class="stat-cell">${playersDisplay}</td>`;
+                html += `<td class="stat-cell">${matchesDisplay}</td>`;
+                html += `<td class="stat-cell">${linkHtml}</td>`;
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+            container.innerHTML = html;
+            container.style.display = 'block';
+
+            // Add event listener for issues filter
+            const issuesFilter = document.getElementById('issuesFilter');
+            if (issuesFilter && issuesFilter.classList.contains('filterable')) {
+                issuesFilter.addEventListener('click', toggleIssuesFilter);
+            }
+
+            // Add event listeners for sortable columns
+            const sortableHeaders = container.querySelectorAll('th.sortable');
+            sortableHeaders.forEach(header => {
+                header.addEventListener('click', () => {
+                    const column = header.getAttribute('data-sort');
+                    if (sortColumn === column) {
+                        // Toggle direction if clicking the same column
+                        sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        // New column, default to ascending
+                        sortColumn = column;
+                        sortDirection = 'asc';
+                    }
+                    // Re-display with current filter and new sort
+                    displayTournaments(getFilteredTournaments());
+                });
+            });
+        }
+
+        function getBerkeleyResultUrl(dateStr) {
+            if (!dateStr) return '#';
+            try {
+                // Parse date string (YYYY-MM-DD)
+                const dateParts = dateStr.split('T')[0].split('-');
+                if (dateParts.length !== 3) return '#';
+
+                const dateKey = dateStr.split('T')[0];
+
+                // Legacy mapping for 2022-2023 (and some 2024)
+                // These use random IDs that cannot be generated algorithmically
+                const legacyMapping = {
+                    "2023-01-06": "https://berkeleytabletennis.org/results/773.pdf",
+                    "2023-01-13": "https://berkeleytabletennis.org/results/774.pdf",
+                    "2023-01-20": "https://berkeleytabletennis.org/results/775.pdf",
+                    "2023-01-27": "https://berkeleytabletennis.org/results/776.pdf",
+                    "2023-02-03": "https://berkeleytabletennis.org/results/777.pdf",
+                    "2023-02-10": "https://berkeleytabletennis.org/results/778.pdf",
+                    "2023-02-17": "https://berkeleytabletennis.org/results/779.pdf",
+                    "2023-02-24": "https://berkeleytabletennis.org/results/780.pdf",
+                    "2023-03-03": "https://berkeleytabletennis.org/results/781.pdf",
+                    "2023-03-10": "https://berkeleytabletennis.org/results/782.pdf",
+                    "2023-03-17": "https://berkeleytabletennis.org/results/783.pdf",
+                    "2023-03-24": "https://berkeleytabletennis.org/results/784.pdf",
+                    "2023-03-31": "https://berkeleytabletennis.org/results/785.pdf",
+                    "2023-04-07": "https://berkeleytabletennis.org/results/786.pdf",
+                    "2023-04-14": "https://berkeleytabletennis.org/results/787.pdf",
+                    "2023-04-21": "https://berkeleytabletennis.org/results/788.pdf",
+                    "2023-04-28": "https://berkeleytabletennis.org/results/789.pdf",
+                    "2023-05-05": "https://berkeleytabletennis.org/results/790.pdf",
+                    "2023-05-12": "https://berkeleytabletennis.org/results/791.pdf",
+                    "2023-05-26": "https://berkeleytabletennis.org/results/792.pdf",
+                    "2023-06-02": "https://berkeleytabletennis.org/results/793.pdf",
+                    "2023-06-09": "https://berkeleytabletennis.org/results/794.pdf",
+                    "2023-06-16": "https://berkeleytabletennis.org/results/795.pdf",
+                    "2023-06-23": "https://berkeleytabletennis.org/results/796.pdf",
+                    "2023-06-30": "https://berkeleytabletennis.org/results/797.pdf",
+                    "2023-07-07": "https://berkeleytabletennis.org/results/798.pdf",
+                    "2023-07-14": "https://berkeleytabletennis.org/results/799.pdf",
+                    "2023-07-21": "https://berkeleytabletennis.org/results/800.pdf",
+                    "2023-07-28": "https://berkeleytabletennis.org/results/801.pdf",
+                    "2023-08-04": "https://berkeleytabletennis.org/results/802.pdf",
+                    "2023-08-11": "https://berkeleytabletennis.org/results/803.pdf",
+                    "2023-08-18": "https://berkeleytabletennis.org/results/804.pdf",
+                    "2023-08-25": "https://berkeleytabletennis.org/results/805.pdf",
+                    "2023-09-01": "https://berkeleytabletennis.org/results/806.pdf",
+                    "2023-09-08": "https://berkeleytabletennis.org/results/807.pdf",
+                    "2023-09-15": "https://berkeleytabletennis.org/results/808.pdf",
+                    "2023-09-22": "https://berkeleytabletennis.org/results/809.pdf",
+                    "2023-09-29": "https://berkeleytabletennis.org/results/810.pdf",
+                    "2023-10-06": "https://berkeleytabletennis.org/results/811.pdf",
+                    "2023-10-13": "https://berkeleytabletennis.org/results/812.pdf",
+                    "2023-10-20": "https://berkeleytabletennis.org/results/813.pdf",
+                    "2023-10-27": "https://berkeleytabletennis.org/results/814.pdf",
+                    "2023-11-03": "https://berkeleytabletennis.org/results/815.pdf",
+                    "2023-11-17": "https://berkeleytabletennis.org/results/816.pdf",
+                    "2023-12-01": "https://berkeleytabletennis.org/results/817.pdf",
+                    "2023-12-08": "https://berkeleytabletennis.org/results/818.pdf",
+                    "2023-12-15": "https://berkeleytabletennis.org/results/819.pdf",
+                    "2023-12-22": "https://berkeleytabletennis.org/results/820.pdf",
+                    "2023-12-29": "https://berkeleytabletennis.org/results/821.pdf",
+                    "2022-01-01": "https://berkeleytabletennis.org/results/735.pdf",
+                    "2022-01-08": "https://berkeleytabletennis.org/results/736.pdf",
+                    "2022-01-15": "https://berkeleytabletennis.org/results/737.pdf",
+                    "2022-01-22": "https://berkeleytabletennis.org/results/738.pdf",
+                    "2022-01-29": "https://berkeleytabletennis.org/results/739.pdf",
+                    "2022-02-06": "https://berkeleytabletennis.org/results/740.pdf",
+                    "2022-02-13": "https://berkeleytabletennis.org/results/741.pdf",
+                    "2022-02-20": "https://berkeleytabletennis.org/results/742.pdf",
+                    "2022-02-27": "https://berkeleytabletennis.org/results/743.pdf",
+                    "2022-03-03": "https://berkeleytabletennis.org/results/744.pdf",
+                    "2022-03-10": "https://berkeleytabletennis.org/results/745.pdf",
+                    "2022-03-17": "https://berkeleytabletennis.org/results/746.pdf",
+                    "2022-03-24": "https://berkeleytabletennis.org/results/747.pdf",
+                    "2022-04-01": "https://berkeleytabletennis.org/results/748.pdf",
+                    "2022-04-08": "https://berkeleytabletennis.org/results/749.pdf",
+                    "2022-04-15": "https://berkeleytabletennis.org/results/750.pdf",
+                    "2022-04-22": "https://berkeleytabletennis.org/results/751.pdf",
+                    "2022-04-29": "https://berkeleytabletennis.org/results/752.pdf",
+                    "2022-05-05": "https://berkeleytabletennis.org/results/753.pdf",
+                    "2022-05-12": "https://berkeleytabletennis.org/results/754.pdf",
+                    "2022-05-19": "https://berkeleytabletennis.org/results/755.pdf",
+                    "2022-05-26": "https://berkeleytabletennis.org/results/756.pdf",
+                    "2022-06-02": "https://berkeleytabletennis.org/results/757.pdf",
+                    "2022-06-09": "https://berkeleytabletennis.org/results/758.pdf",
+                    "2022-06-16": "https://berkeleytabletennis.org/results/759.pdf",
+                    "2022-06-23": "https://berkeleytabletennis.org/results/760.pdf",
+                    "2022-06-30": "https://berkeleytabletennis.org/results/761.pdf",
+                    "2022-07-07": "https://berkeleytabletennis.org/results/762.pdf",
+                    "2022-07-14": "https://berkeleytabletennis.org/results/763.pdf",
+                    "2022-07-21": "https://berkeleytabletennis.org/results/764.pdf",
+                    "2022-07-28": "https://berkeleytabletennis.org/results/765.pdf",
+                    "2022-08-04": "https://berkeleytabletennis.org/results/766.pdf",
+                    "2022-08-18": "https://berkeleytabletennis.org/results/767.pdf",
+                    "2022-09-02": "https://berkeleytabletennis.org/results/768.pdf",
+                    "2022-09-09": "https://berkeleytabletennis.org/results/769.pdf",
+                    "2022-09-16": "https://berkeleytabletennis.org/results/770.pdf",
+                    "2022-09-23": "https://berkeleytabletennis.org/results/771.pdf",
+                    "2022-09-30": "https://berkeleytabletennis.org/results/772.pdf"
+                };
+
+                if (legacyMapping[dateKey]) {
+                    return legacyMapping[dateKey];
+                }
+
+                const year = parseInt(dateParts[0]);
+                const month = parseInt(dateParts[1]) - 1; // 0-indexed
+                const day = parseInt(dateParts[2]);
+                const date = new Date(year, month, day);
+
+                const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                const mon = monthNames[month];
+                const dd = day.toString().padStart(2, '0');
+                const yyyy = year.toString();
+
+                // Logic based on date
+                // Format 3: From April 18, 2025 onwards
+                // https://berkeleytabletennis.org/results/rr_results_<yyyy><mon><dd> (lowercase)
+                // Note: The transition date is approximate based on the provided list, 
+                // but April 18 is the first one listed with the new format.
+                const transitionDate = new Date(2025, 3, 18); // April 18, 2025
+
+                // Check for the specific transition cases in April 2025
+                if (year === 2025 && month === 3) { // April
+                    if (day === 4 || day === 11) {
+                        // Format 2: https://berkeleytabletennis.org/results/RR_Results%20<YYYY><Mon><DD>.html
+                        return `https://berkeleytabletennis.org/results/RR_Results%20${yyyy}${mon}${dd}.html`;
+                    }
+                }
+
+                if (date >= transitionDate) {
+                    // Format 3 (New)
+                    return `https://berkeleytabletennis.org/results/rr_results_${yyyy}${mon.toLowerCase()}${dd}`;
+                } else {
+                    // Format 1 (Old)
+                    // https://berkeleytabletennis.org/results/RR_Results%20<YYYY><Mon><DD>.pdf
+                    return `https://berkeleytabletennis.org/results/RR_Results%20${yyyy}${mon}${dd}.pdf`;
+                }
+            } catch (e) {
+                console.error("Error generating result URL:", e);
+                return '#';
+            }
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Load on page load
+        loadTournaments();
+    </script>
+</body>
+
+</html>
