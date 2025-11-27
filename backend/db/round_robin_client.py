@@ -2519,7 +2519,7 @@ class RoundRobinClient:
             return []
     
     def get_head_to_head_matches_paginated(self, player1_name: str, player2_name: str, page: int = 1, page_size: int = 20) -> Dict:
-        """Get paginated head-to-head matches between two players with ratings at match time"""
+        """Get paginated head-to-head matches between two players with ratings at match time (OPTIMIZED)"""
         try:
             import math
             
@@ -2541,7 +2541,7 @@ class RoundRobinClient:
                 .order('tournament_date', desc=True)
             )
             
-            # Execute both queries
+            # Execute both queries (these are fast, main bottleneck is rating queries)
             result1 = query1.execute()
             result2 = query2.execute()
             
@@ -2584,7 +2584,9 @@ class RoundRobinClient:
             end_idx = start_idx + page_size
             paginated_matches = unique_matches[start_idx:end_idx]
             
-            # Get ratings for each match from player_tournament_stats
+            # OPTIMIZATION: Batch fetch all ratings to eliminate N+1 query problem
+            # Collect all unique (tournament_id, group_id, player_id) combinations from paginated matches
+            rating_keys = set()
             for match in paginated_matches:
                 tournament_id = match.get('tournament_id')
                 group_id = match.get('group_id')
@@ -2592,38 +2594,82 @@ class RoundRobinClient:
                 player2_id = match.get('player2_id')
                 
                 if tournament_id and group_id and player1_id and player2_id:
+                    rating_keys.add((tournament_id, group_id, player1_id))
+                    rating_keys.add((tournament_id, group_id, player2_id))
+            
+            # Batch fetch all ratings - fetch all stats for all tournament/group/player combinations at once
+            ratings_cache = {}
+            if rating_keys:
+                # Group by tournament_id and group_id to batch fetch player stats
+                # Since we need to match on (tournament_id, group_id, player_id), we'll batch by tournament/group
+                tournament_groups = {}
+                for tournament_id, group_id, player_id in rating_keys:
+                    key = (tournament_id, group_id)
+                    if key not in tournament_groups:
+                        tournament_groups[key] = set()
+                    tournament_groups[key].add(player_id)
+                
+                # Fetch ratings for each tournament/group combination
+                for (tournament_id, group_id), player_ids in tournament_groups.items():
                     try:
-                        # Get player1 rating stats for this tournament/group
-                        stats1 = (
+                        # Fetch all player stats for this tournament/group in one query
+                        stats_result = (
                             self.client.table('player_tournament_stats')
-                            .select('rating_pre,rating_post,rating_change')
-                            .eq('player_id', player1_id)
+                            .select('player_id,tournament_id,group_id,rating_pre,rating_post,rating_change')
                             .eq('tournament_id', tournament_id)
                             .eq('group_id', group_id)
+                            .in_('player_id', list(player_ids))
                             .execute()
                         )
-                        if stats1.data and len(stats1.data) > 0:
-                            match['player1_rating'] = stats1.data[0].get('rating_pre')
-                            match['player1_rating_post'] = stats1.data[0].get('rating_post')
-                            match['player1_rating_change'] = stats1.data[0].get('rating_change')
                         
-                        # Get player2 rating stats for this tournament/group
-                        stats2 = (
-                            self.client.table('player_tournament_stats')
-                            .select('rating_pre,rating_post,rating_change')
-                            .eq('player_id', player2_id)
-                            .eq('tournament_id', tournament_id)
-                            .eq('group_id', group_id)
-                            .execute()
-                        )
-                        if stats2.data and len(stats2.data) > 0:
-                            match['player2_rating'] = stats2.data[0].get('rating_pre')
-                            match['player2_rating_post'] = stats2.data[0].get('rating_post')
-                            match['player2_rating_change'] = stats2.data[0].get('rating_change')
+                        if stats_result.data:
+                            for stat in stats_result.data:
+                                player_id = stat.get('player_id')
+                                key = (tournament_id, group_id, player_id)
+                                ratings_cache[key] = stat
                     except Exception as e:
-                        match_id = match.get('match_id')
-                        print(f"Error getting ratings for match {match_id}: {e}")
-                        # Continue without ratings if there's an error
+                        # If batch query fails (e.g., too many players), fall back to individual queries
+                        print(f"Batch query failed for tournament {tournament_id}, group {group_id}: {e}")
+                        for player_id in player_ids:
+                            try:
+                                stats = (
+                                    self.client.table('player_tournament_stats')
+                                    .select('player_id,tournament_id,group_id,rating_pre,rating_post,rating_change')
+                                    .eq('player_id', player_id)
+                                    .eq('tournament_id', tournament_id)
+                                    .eq('group_id', group_id)
+                                    .execute()
+                                )
+                                if stats.data and len(stats.data) > 0:
+                                    key = (tournament_id, group_id, player_id)
+                                    ratings_cache[key] = stats.data[0]
+                            except Exception as e2:
+                                print(f"Error getting rating for player {player_id}, tournament {tournament_id}, group {group_id}: {e2}")
+                                continue
+            
+            # Attach ratings to matches from cache
+            for match in paginated_matches:
+                tournament_id = match.get('tournament_id')
+                group_id = match.get('group_id')
+                player1_id = match.get('player1_id')
+                player2_id = match.get('player2_id')
+                
+                if tournament_id and group_id and player1_id and player2_id:
+                    # Get player1 rating from cache
+                    key1 = (tournament_id, group_id, player1_id)
+                    if key1 in ratings_cache:
+                        stats1 = ratings_cache[key1]
+                        match['player1_rating'] = stats1.get('rating_pre')
+                        match['player1_rating_post'] = stats1.get('rating_post')
+                        match['player1_rating_change'] = stats1.get('rating_change')
+                    
+                    # Get player2 rating from cache
+                    key2 = (tournament_id, group_id, player2_id)
+                    if key2 in ratings_cache:
+                        stats2 = ratings_cache[key2]
+                        match['player2_rating'] = stats2.get('rating_pre')
+                        match['player2_rating_post'] = stats2.get('rating_post')
+                        match['player2_rating_change'] = stats2.get('rating_change')
             
             return {
                 'matches': paginated_matches,
@@ -2636,6 +2682,8 @@ class RoundRobinClient:
             }
         except Exception as e:
             print(f"Error getting head-to-head matches for {player1_name} vs {player2_name}: {e}")
+            import traceback
+            traceback.print_exc()
             return {
                 'matches': [],
                 'total': 0,

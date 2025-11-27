@@ -283,6 +283,62 @@ class TournamentImporter:
             print(f"Warning: Could not check imported tournaments: {e}")
         return set()
     
+    def _validate_tournament_data(self, data: Dict) -> tuple:
+        """
+        Validate tournament data before insertion
+        
+        Returns:
+            Tuple of (is_valid, list of validation errors)
+        """
+        errors = []
+        
+        # Validate tournament info
+        tournament = data.get('tournament', {})
+        if not tournament:
+            errors.append("Missing tournament information")
+            return False, errors
+        
+        # Validate groups
+        groups = data.get('groups', [])
+        if not groups or not isinstance(groups, list) or len(groups) == 0:
+            errors.append("No groups found")
+            return False, errors
+        
+        # Validate each group
+        for i, group in enumerate(groups):
+            group_name = group.get('group_name', f"Group {i+1}")
+            players = group.get('players', [])
+            
+            if not players or len(players) == 0:
+                errors.append(f"Group {group_name}: No players found")
+                continue
+            
+            # Validate matches - check if we have enough matches
+            matches = group.get('matches', [])
+            if not isinstance(matches, list):
+                errors.append(f"Group {group_name}: Matches is not a list")
+                continue
+            
+            # Expected number of matches for round robin: n*(n-1)/2
+            expected_matches = len(players) * (len(players) - 1) // 2 if len(players) > 0 else 0
+            actual_matches = len(matches)
+            
+            # If no matches found, this is an error
+            if actual_matches == 0 and expected_matches > 0:
+                errors.append(f"Group {group_name}: Expected {expected_matches} matches for {len(players)} players, got 0")
+            
+            # If we have significantly fewer matches than expected (>50% missing), error
+            if actual_matches > 0 and expected_matches > 0:
+                missing_pct = ((expected_matches - actual_matches) / expected_matches * 100)
+                if missing_pct > 50:
+                    errors.append(f"Group {group_name}: Expected {expected_matches} matches for {len(players)} players, got {actual_matches} (missing {missing_pct:.1f}%)")
+            
+            # If we have more matches than expected, error
+            if actual_matches > expected_matches:
+                errors.append(f"Group {group_name}: Got {actual_matches} matches but expected {expected_matches} for {len(players)} players")
+        
+        return len(errors) == 0, errors
+    
     def import_tournament(self, tournament: Dict, skip_existing: bool = True, index: Optional[int] = None, total: Optional[int] = None) -> tuple:
         """
         Import a single tournament
@@ -370,6 +426,17 @@ class TournamentImporter:
             
             with self.print_lock:
                 print(f"{progress_prefix}Found {len(groups)} groups, {sum(len(g.get('players', [])) for g in groups)} players")
+            
+            # Validate tournament data before importing
+            is_valid, validation_errors = self._validate_tournament_data(results)
+            if not is_valid:
+                with self.print_lock:
+                    print(f"{progress_prefix}❌ Validation failed: {len(validation_errors)} errors")
+                    for err in validation_errors[:5]:  # Show first 5 errors
+                        print(f"{progress_prefix}   - {err}")
+                    if len(validation_errors) > 5:
+                        print(f"{progress_prefix}   ... and {len(validation_errors) - 5} more errors")
+                return (display, 'failed')
             
             # Import into database
             with self.print_lock:

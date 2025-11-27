@@ -388,6 +388,17 @@
             color: #444;
         }
         
+        .tournament-date-link {
+            color: #607890;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+        
+        .tournament-date-link:hover {
+            color: #036;
+            text-decoration: underline;
+        }
+        
         @media (max-width: 768px) {
             header h1 {
                 font-size: 2em;
@@ -1658,11 +1669,12 @@
                 
                 // Format date
                 let dateStr = match.tournament_date || 'N/A';
+                let dateDisplay = dateStr;
                 if (dateStr !== 'N/A' && dateStr) {
                     try {
                         const date = parseLocalDate(dateStr);
                         if (date && !isNaN(date.getTime())) {
-                            dateStr = date.toLocaleDateString('en-US', { 
+                            dateDisplay = date.toLocaleDateString('en-US', { 
                                 month: 'short', 
                                 day: 'numeric', 
                                 year: 'numeric' 
@@ -1673,13 +1685,19 @@
                     }
                 }
                 
+                // Make date a link to tournament if tournament_id is available
+                const tournamentId = match.tournament_id;
+                const dateCell = tournamentId 
+                    ? `<a href="/tournament/${tournamentId}" class="tournament-date-link">${dateDisplay}</a>`
+                    : dateDisplay;
+                
                 // Format ratings
                 const playerRatingStr = playerRating !== null && playerRating !== undefined ? playerRating.toString() : 'N/A';
                 const opponentRatingStr = opponentRating !== null && opponentRating !== undefined ? opponentRating.toString() : 'N/A';
                 
                 html += `
                     <tr>
-                        <td>${dateStr}</td>
+                        <td>${dateCell}</td>
                         <td>${escapeHtml(playerName)}</td>
                         <td>${playerRatingStr}</td>
                         <td>${playerScore || 0}-${opponentScore || 0}</td>
@@ -2640,11 +2658,12 @@
                     
                     // Format date
                     let dateStr = match.tournament_date || 'N/A';
+                    let dateDisplay = dateStr;
                     if (dateStr !== 'N/A' && dateStr) {
                         try {
                             const date = parseLocalDate(dateStr);
                             if (date && !isNaN(date.getTime())) {
-                                dateStr = date.toLocaleDateString('en-US', { 
+                                dateDisplay = date.toLocaleDateString('en-US', { 
                                     month: 'short', 
                                     day: 'numeric', 
                                     year: 'numeric' 
@@ -2656,12 +2675,18 @@
                         }
                     }
                     
+                    // Make date a link to tournament if tournament_id is available
+                    const tournamentId = match.tournament_id;
+                    const dateCell = tournamentId 
+                        ? `<a href="/tournament/${tournamentId}" class="tournament-date-link">${dateDisplay}</a>`
+                        : dateDisplay;
+                    
                     // Format opponent rating
                     const opponentRatingStr = opponentRating !== null && opponentRating !== undefined ? opponentRating.toString() : 'N/A';
                     
                     html += `
                         <tr>
-                            <td>${dateStr}</td>
+                            <td>${dateCell}</td>
                             <td>${createPlayerLink(opponent)}</td>
                             <td>${opponentRatingStr}</td>
                             <td>${playerScore}-${opponentScore}</td>

@@ -1,12 +1,13 @@
--- Create Materialized View for Player Rankings
--- This pre-computes player rankings, current ratings, and last match dates
--- Refreshes only when new data is imported (via trigger or manual refresh)
+-- Migration script to fix rating calculation bug in player_rankings_view
+-- Issue: When multiple rating history entries exist for the same tournament date,
+-- the view was not prioritizing entries with rating_post over entries with only rating_pre
+-- This caused incorrect ratings to be displayed on the main players page
 
--- ============================================================================
--- Step 1: Create the Materialized View
--- ============================================================================
+-- Step 1: Drop the old view (CASCADE to drop dependent indexes)
+DROP MATERIALIZED VIEW IF EXISTS player_rankings_view CASCADE;
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS player_rankings_view AS
+-- Step 2: Recreate the view with the fixed ordering logic
+CREATE MATERIALIZED VIEW player_rankings_view AS
 WITH latest_ratings AS (
     -- Get the most recent rating for each player
     -- Use rating_post first, fallback to rating_pre if rating_post is missing (matching old method)
@@ -116,51 +117,22 @@ LEFT JOIN last_match_dates lmd ON p.id = lmd.player_id
 LEFT JOIN last_rating_dates lrd ON p.id = lrd.player_id
 ORDER BY rap.ranking NULLS LAST, p.name;
 
--- ============================================================================
--- Step 2: Create Indexes for Fast Lookups
--- ============================================================================
-
--- Index for fast lookups by player name
-CREATE UNIQUE INDEX IF NOT EXISTS idx_player_rankings_player_id 
+-- Step 3: Recreate indexes for fast lookups
+CREATE UNIQUE INDEX idx_player_rankings_player_id 
 ON player_rankings_view(player_id);
 
--- Index for sorting by rating
-CREATE INDEX IF NOT EXISTS idx_player_rankings_rating 
+CREATE INDEX idx_player_rankings_rating 
 ON player_rankings_view(current_rating DESC NULLS LAST);
 
--- Index for sorting by ranking
-CREATE INDEX IF NOT EXISTS idx_player_rankings_ranking 
+CREATE INDEX idx_player_rankings_ranking 
 ON player_rankings_view(ranking NULLS LAST);
 
--- Index for filtering active players
-CREATE INDEX IF NOT EXISTS idx_player_rankings_active 
+CREATE INDEX idx_player_rankings_active 
 ON player_rankings_view(is_active) WHERE is_active = true;
 
--- ============================================================================
--- Step 3: Create Function to Refresh the View
--- ============================================================================
-
-CREATE OR REPLACE FUNCTION refresh_player_rankings_view()
-RETURNS void AS $$
-BEGIN
-    -- Use CONCURRENTLY to avoid blocking reads (requires unique index)
-    REFRESH MATERIALIZED VIEW CONCURRENTLY player_rankings_view;
-END;
-$$ LANGUAGE plpgsql;
-
--- ============================================================================
--- Step 4: Initial Population
--- ============================================================================
-
--- Populate the view with initial data
-REFRESH MATERIALIZED VIEW player_rankings_view;
-
--- ============================================================================
--- Notes:
--- ============================================================================
--- 1. This view refreshes only when explicitly called via refresh_player_rankings_view()
--- 2. Call this function after importing new tournament data
--- 3. The view uses CONCURRENTLY to avoid blocking reads during refresh
--- 4. Rankings are calculated only for active players (played in last 365 days)
--- 5. All players are included, but only active ones have rankings
+-- Step 4: Verify the fix
+-- Check Ryan Wang's rating (should now show 1660 instead of 1630)
+SELECT player_name, current_rating, ranking 
+FROM player_rankings_view 
+WHERE player_name = 'Ryan Wang';
 
