@@ -9,10 +9,10 @@ from dotenv import load_dotenv
 
 # Only load environment variables from a local .env file if they haven't 
 # already been set by the CI/CD pipeline or system environment.
-if not os.getenv('SUPABASE_URL') or not os.getenv('SUPABASE_KEY'):
-    # This line will only run if the variables aren't already available
-    # (i.e., when running locally without exporting the vars)
-    load_dotenv()
+# if not os.getenv('SUPABASE_URL') or not os.getenv('SUPABASE_KEY'):
+#     # This line will only run if the variables aren't already available
+#     # (i.e., when running locally without exporting the vars)
+#     load_dotenv()
 
 
 
