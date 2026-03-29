@@ -5,10 +5,13 @@ Handles insertion and querying of round robin tournament data
 from supabase import create_client, Client
 from typing import List, Dict, Optional
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
-# Load .env for local dev; does not override vars already set by the host (e.g. Render/Heroku).
-load_dotenv()
+# Load repo-root .env for local dev (cwd-independent — plain load_dotenv() only checks cwd).
+# Does not override vars already set by the host (e.g. Render/Heroku, GitHub Actions).
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+load_dotenv(_PROJECT_ROOT / ".env")
 
 
 

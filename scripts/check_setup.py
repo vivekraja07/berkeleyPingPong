@@ -3,9 +3,11 @@
 Check Setup - Verify environment and database connection
 """
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+_ROOT = Path(__file__).resolve().parent.parent
+load_dotenv(_ROOT / ".env")
 
 print("=" * 60)
 print("Setup Check")
@@ -13,7 +15,7 @@ print("=" * 60)
 print()
 
 # Check .env file
-env_file_exists = os.path.exists('.env')
+env_file_exists = (_ROOT / ".env").exists()
 print(f"✅ .env file exists: {env_file_exists}")
 
 if not env_file_exists:

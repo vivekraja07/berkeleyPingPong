@@ -3,10 +3,12 @@
 Check if round robin tables exist
 """
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 from supabase import create_client
 
-load_dotenv()
+_ROOT = Path(__file__).resolve().parent.parent
+load_dotenv(_ROOT / ".env")
 
 supabase_url = os.getenv('SUPABASE_URL')
 supabase_key = os.getenv('SUPABASE_KEY')
