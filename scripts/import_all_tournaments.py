@@ -562,7 +562,10 @@ class TournamentImporter:
         print(f"⏭️  Skipped (already exist): {stats['skipped']}")
         print(f"❌ Failed: {stats['failed']}")
         print(f"⏱️  Total time: {elapsed_time:.2f} seconds")
-        print(f"⚡ Average time per tournament: {elapsed_time / stats['total']:.2f} seconds")
+        if stats['total'] > 0:
+            print(f"⚡ Average time per tournament: {elapsed_time / stats['total']:.2f} seconds")
+        else:
+            print("⚡ No tournaments processed (nothing matched filters or scrape was empty)")
         print("="*60)
         
         return stats

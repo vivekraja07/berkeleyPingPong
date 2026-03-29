@@ -9,6 +9,8 @@ on:
 
 jobs:
   import-tournaments:
+    # Use repository Actions secrets (SUPABASE_URL, SUPABASE_KEY). Do not pin a GitHub
+    # Environment here: deployment protection / required reviewers block scheduled runs.
     runs-on: ubuntu-latest
     permissions:
       contents: read
