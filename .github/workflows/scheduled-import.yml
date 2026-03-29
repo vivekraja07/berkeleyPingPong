@@ -9,8 +9,10 @@ on:
 
 jobs:
   import-tournaments:
-    # Use repository Actions secrets (SUPABASE_URL, SUPABASE_KEY). Do not pin a GitHub
-    # Environment here: deployment protection / required reviewers block scheduled runs.
+    # Secrets can live on this Environment (Settings → Environments → supabase) or as
+    # repository secrets. If this env has "Required reviewers", scheduled runs will wait
+    # for approval — remove that rule for this env or use repository secrets instead.
+    environment: supabase
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -36,6 +38,11 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
+          # .env is not in git; values come from the "supabase" environment and/or repo secrets.
+          if [ -z "${SUPABASE_URL}" ] || [ -z "${SUPABASE_KEY}" ]; then
+            echo "::error::Missing SUPABASE_URL and/or SUPABASE_KEY. Add them to the supabase environment or repository Actions secrets, then re-run."
+            exit 1
+          fi
           python3 scripts/scheduled_import.py
       
       - name: Notify on failure

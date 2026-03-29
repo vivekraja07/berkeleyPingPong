@@ -24,7 +24,10 @@ class RoundRobinClient:
         
         if not supabase_url or not supabase_key:
             raise ValueError(
-                "SUPABASE_URL and SUPABASE_KEY must be set in environment variables or .env file"
+                "SUPABASE_URL and SUPABASE_KEY must be set. "
+                "Locally: add them to the repo-root .env file. "
+                "GitHub Actions: add them as repository secrets (Settings → Secrets and variables → Actions), "
+                "not only on a GitHub Environment, unless the workflow sets that environment."
             )
         
         self.client: Client = create_client(supabase_url, supabase_key)
