@@ -339,7 +339,8 @@ class TournamentImporter:
         
         return len(errors) == 0, errors
     
-    def import_tournament(self, tournament: Dict, skip_existing: bool = True, index: Optional[int] = None, total: Optional[int] = None) -> tuple:
+    def import_tournament(self, tournament: Dict, skip_existing: bool = True, index: Optional[int] = None, total: Optional[int] = None,
+                          defer_materialized_view_refresh: bool = False) -> tuple:
         """
         Import a single tournament
         
@@ -348,6 +349,7 @@ class TournamentImporter:
             skip_existing: If True, skip tournaments that already exist
             index: Optional index for progress display
             total: Optional total count for progress display
+            defer_materialized_view_refresh: If True, skip MV refresh here (import_all refreshes once after parallel batch)
             
         Returns:
             Tuple of (tournament display name, status) where status is 'imported', 'skipped', or 'failed'
@@ -442,7 +444,10 @@ class TournamentImporter:
             with self.print_lock:
                 print(f"{progress_prefix}Importing into database...")
             
-            import_result = client.insert_round_robin_data(results)
+            import_result = client.insert_round_robin_data(
+                results,
+                refresh_materialized_views=not defer_materialized_view_refresh
+            )
             
             with self.print_lock:
                 print(f"{progress_prefix}✅ Successfully imported!")
@@ -521,12 +526,13 @@ class TournamentImporter:
             # Submit all tasks
             future_to_tournament = {
                 executor.submit(
-                    self.import_tournament, 
-                    tournament, 
-                    skip_existing, 
-                    i + 1, 
-                    len(tournaments)
-                ): tournament 
+                    self.import_tournament,
+                    tournament,
+                    skip_existing,
+                    i + 1,
+                    len(tournaments),
+                    True,
+                ): tournament
                 for i, tournament in enumerate(tournaments)
             }
             
@@ -567,6 +573,13 @@ class TournamentImporter:
         else:
             print("⚡ No tournaments processed (nothing matched filters or scrape was empty)")
         print("="*60)
+        
+        # One refresh after parallel work — concurrent per-tournament REFRESH calls conflict in Postgres
+        if stats['imported'] > 0:
+            print("\nRefreshing materialized views (player_rankings_view, player_match_stats_view)...")
+            client = RoundRobinClient()
+            client.refresh_materialized_views()
+            print("Materialized views refreshed.")
         
         return stats
 

@@ -36,7 +36,8 @@ class RoundRobinClient:
         self._group_cache = {}
     
     def insert_round_robin_data(self, parsed_data: Dict, source_url: Optional[str] = None, 
-                                parsing_status: str = 'success', parse_error: Optional[str] = None) -> Dict:
+                                parsing_status: str = 'success', parse_error: Optional[str] = None,
+                                refresh_materialized_views: bool = True) -> Dict:
         """
         Insert complete round robin tournament data
         
@@ -45,6 +46,7 @@ class RoundRobinClient:
             source_url: Optional URL where the tournament data was extracted from
             parsing_status: Parsing status ('success', 'parsing_failed', 'validation_failed', 'db_error')
             parse_error: Optional error message if parsing failed
+            refresh_materialized_views: If False, skip MV refresh (parallel import defers one refresh at end)
             
         Returns:
             Dictionary with inserted IDs
@@ -74,22 +76,9 @@ class RoundRobinClient:
             group_result = self._insert_group(tournament_id, group)
             result['groups'].append(group_result)
         
-        # Refresh the materialized views after successful import
-        try:
-            self.refresh_player_rankings_view()
-            print(f"Refreshed player rankings view after importing tournament {tournament_id}")
-        except Exception as e:
-            # Log but don't fail the import if refresh fails
-            print(f"Warning: Could not refresh player rankings view: {e}")
-            # Don't raise - import was successful, view refresh is optional
-        
-        try:
-            self.refresh_player_match_stats_view()
-            print(f"Refreshed player match stats view after importing tournament {tournament_id}")
-        except Exception as e:
-            # Log but don't fail the import if refresh fails
-            print(f"Warning: Could not refresh player match stats view: {e}")
-            # Don't raise - import was successful, view refresh is optional
+        if refresh_materialized_views:
+            self.refresh_materialized_views()
+            print(f"Refreshed materialized views after importing tournament {tournament_id}")
         
         return result
     
@@ -818,10 +807,11 @@ class RoundRobinClient:
                 # No date filter, use materialized view stats directly
                 # Also get ranking from player_rankings_view
                 ranking_info = None
+                ranking_result = None
                 try:
                     ranking_result = (
                         self.client.table('player_rankings_view')
-                        .select('ranking,current_rating')
+                        .select('ranking,current_rating,last_match_date')
                         .eq('player_name', player_name)
                         .execute()
                     )
@@ -847,6 +837,16 @@ class RoundRobinClient:
                     print(f"Error getting ranking from view for {player_name}: {e}")
                     ranking_info = None
                 
+                # Last Match: player_rankings_view (GREATEST match date & rating date); fallback match-stats MV
+                last_match_val = None
+                if ranking_result and ranking_result.data and len(ranking_result.data) > 0:
+                    last_match_val = ranking_result.data[0].get('last_match_date')
+                if not last_match_val:
+                    last_match_val = base_stats.get('last_tournament_date')
+                last_match_str = None
+                if last_match_val is not None:
+                    last_match_str = str(last_match_val).strip().split('T')[0].split(' ')[0]
+                
                 result = {
                     'total_matches': base_stats.get('total_matches', 0),
                     'wins': base_stats.get('total_wins', 0),
@@ -856,7 +856,7 @@ class RoundRobinClient:
                     'total_tournaments': base_stats.get('total_tournaments', 0),
                     'highest_rating': base_stats.get('highest_rating'),
                     'date_joined': str(base_stats.get('date_joined')) if base_stats.get('date_joined') else None,
-                    'last_match_date': str(base_stats.get('last_tournament_date')) if base_stats.get('last_tournament_date') else None,
+                    'last_match_date': last_match_str,
                     'ranking': ranking_info.get('rank') if ranking_info else None,
                     'total_players': ranking_info.get('total_players') if ranking_info else None,
                     'players_better_than': ranking_info.get('players_better_than') if ranking_info else None,
@@ -1146,45 +1146,58 @@ class RoundRobinClient:
             
             # date_joined is now calculated above with rating_history
             
-            # OPTIMIZED: Get last match date using single OR query instead of two separate queries
+            # Last match: player_rankings_view for all-time; filtered window uses max in loaded matches.
             last_match_date = None
             try:
-                # Use the matches we already fetched if available, otherwise query
-                if unique_matches:
-                    # Extract dates from already fetched matches
-                    dates = [m.get('tournament_date') for m in unique_matches if m.get('tournament_date')]
-                    if dates:
-                        last_match_date = max(dates)
-                else:
-                    # Fallback: two separate queries
-                    last_match_query1 = (
-                        self.client.table('match_results_view')
-                        .select('tournament_date')
-                        .eq('player1_name', player_name)
-                        .order('tournament_date', desc=True)
-                        .limit(1)
-                        .execute()
-                    )
-                    
-                    last_match_query2 = (
-                        self.client.table('match_results_view')
-                        .select('tournament_date')
-                        .eq('player2_name', player_name)
-                        .order('tournament_date', desc=True)
-                        .limit(1)
-                        .execute()
-                    )
-                    
-                    dates = []
-                    if last_match_query1.data and len(last_match_query1.data) > 0:
-                        dates.append(last_match_query1.data[0].get('tournament_date'))
-                    if last_match_query2.data and len(last_match_query2.data) > 0:
-                        dates.append(last_match_query2.data[0].get('tournament_date'))
-                    
-                    if dates:
-                        last_match_date = max([d for d in dates if d])
+                if days_back is None:
+                    try:
+                        lm_res = (
+                            self.client.table('player_rankings_view')
+                            .select('last_match_date')
+                            .eq('player_name', player_name)
+                            .limit(1)
+                            .execute()
+                        )
+                        if lm_res.data and lm_res.data[0].get('last_match_date'):
+                            last_match_date = lm_res.data[0].get('last_match_date')
+                    except Exception as e:
+                        print(f"Error getting last_match_date from player_rankings_view: {e}")
+                
+                if last_match_date is None:
+                    if unique_matches:
+                        dates = [m.get('tournament_date') for m in unique_matches if m.get('tournament_date')]
+                        if dates:
+                            last_match_date = max(dates)
+                    else:
+                        last_match_query1 = (
+                            self.client.table('match_results_view')
+                            .select('tournament_date')
+                            .eq('player1_name', player_name)
+                            .order('tournament_date', desc=True)
+                            .limit(1)
+                            .execute()
+                        )
+                        last_match_query2 = (
+                            self.client.table('match_results_view')
+                            .select('tournament_date')
+                            .eq('player2_name', player_name)
+                            .order('tournament_date', desc=True)
+                            .limit(1)
+                            .execute()
+                        )
+                        dates = []
+                        if last_match_query1.data and len(last_match_query1.data) > 0:
+                            dates.append(last_match_query1.data[0].get('tournament_date'))
+                        if last_match_query2.data and len(last_match_query2.data) > 0:
+                            dates.append(last_match_query2.data[0].get('tournament_date'))
+                        if dates:
+                            last_match_date = max([d for d in dates if d])
             except Exception as e:
                 print(f"Error getting last match date for {player_name}: {e}")
+            
+            last_match_date_str = None
+            if last_match_date is not None:
+                last_match_date_str = str(last_match_date).strip().split('T')[0].split(' ')[0]
             
             # Get ranking and percentile (only if not filtering by days_back, or if days_back is None)
             ranking_info = None
@@ -1206,7 +1219,7 @@ class RoundRobinClient:
                 'top_rated_win': top_rated_win,
                 'top_rated_win_info': top_rated_win_info,  # Full info: rating, opponent_name, date
                 'date_joined': date_joined,
-                'last_match_date': last_match_date,
+                'last_match_date': last_match_date_str,
                 'ranking': ranking_info.get('rank') if ranking_info else None,
                 'total_players': ranking_info.get('total_players') if ranking_info else None,
                 'players_better_than': ranking_info.get('players_better_than') if ranking_info else None
@@ -1725,32 +1738,44 @@ class RoundRobinClient:
             # Fallback to basic player list
             return [{'name': p.get('name'), 'id': p.get('id'), 'ranking': None, 'current_rating': None} for p in self.get_all_players()]
     
+    def refresh_materialized_views(self) -> None:
+        """Refresh rankings and match-stats materialized views (both, in order).
+        Retries transient failures. Raises RuntimeError if all attempts fail — data is already committed.
+        Do not call concurrently from multiple threads (Postgres disallows overlapping REFRESH CONCURRENTLY)."""
+        import time
+        last_err = None
+        for attempt in range(3):
+            try:
+                self.client.rpc('refresh_player_rankings_view', {}).execute()
+                self.client.rpc('refresh_player_match_stats_view', {}).execute()
+                return
+            except Exception as e:
+                last_err = e
+                if attempt < 2:
+                    time.sleep(0.5 * (2 ** attempt))
+        raise RuntimeError(
+            "Materialized view refresh failed after 3 attempts. "
+            "Tournament rows are saved but rankings/match-stats views may be stale until you run "
+            "SELECT refresh_player_rankings_view(); SELECT refresh_player_match_stats_view(); in SQL. "
+            f"Last error: {last_err}"
+        ) from last_err
+    
     def refresh_player_rankings_view(self) -> bool:
-        """Refresh the materialized view for player rankings"""
+        """Refresh the materialized view for player rankings (single view)."""
         try:
-            # Call the PostgreSQL function to refresh the view
-            result = self.client.rpc('refresh_player_rankings_view').execute()
+            self.client.rpc('refresh_player_rankings_view', {}).execute()
             return True
         except Exception as e:
-            # If the function doesn't exist, try direct SQL (fallback)
-            try:
-                # Note: Supabase client doesn't directly support REFRESH MATERIALIZED VIEW
-                # So we use the RPC function which should be created by the SQL script
-                print(f"Error refreshing player rankings view via RPC: {e}")
-                print("Make sure you've run sql/create_player_rankings_view.sql")
-                return False
-            except Exception as e2:
-                print(f"Error refreshing player rankings view: {e2}")
-                return False
+            print(f"Error refreshing player rankings view via RPC: {e}")
+            print("Make sure you've run sql/create_player_rankings_view.sql")
+            return False
     
     def refresh_player_match_stats_view(self) -> bool:
-        """Refresh the materialized view for player match statistics"""
+        """Refresh the materialized view for player match statistics (single view)."""
         try:
-            # Call the PostgreSQL function to refresh the view
-            result = self.client.rpc('refresh_player_match_stats_view').execute()
+            self.client.rpc('refresh_player_match_stats_view', {}).execute()
             return True
         except Exception as e:
-            # If the function doesn't exist, log warning
             print(f"Error refreshing player match stats view via RPC: {e}")
             print("Make sure you've run sql/create_player_stats_view.sql")
             return False
