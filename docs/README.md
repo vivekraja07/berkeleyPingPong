@@ -2,6 +2,19 @@
 
 A Python parser that extracts ping pong match history from PDF and HTML files/websites and stores them in a Supabase database.
 
+## Production setup (read this first)
+
+This project is designed to run cheaply in the cloud:
+
+- **GitHub Actions** — **every week**, a workflow **scrapes** the latest round robin results and **imports** them into the database.
+- **Supabase** — database (**free** tier).
+- **Render** — Flask web UI (**free** tier; sleeps when idle).
+- **FastCron** — optional HTTP cron to **work around free-tier limits** (e.g. wake the Render app before users arrive).
+
+Full diagram and details: **[INFRASTRUCTURE.md](./INFRASTRUCTURE.md)**. Repository layout: **[../PROJECT_STRUCTURE.md](../PROJECT_STRUCTURE.md)**.
+
+---
+
 ## Features
 
 - Parse ping pong match data from PDF files (local or URLs)

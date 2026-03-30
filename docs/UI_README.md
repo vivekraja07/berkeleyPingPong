@@ -2,6 +2,8 @@
 
 A web application for visualizing round robin tournament statistics with interactive charts.
 
+When deployed, the UI is commonly served on **Render** (free tier) with data in **Supabase**; weekly imports run in **GitHub Actions**. See **[INFRASTRUCTURE.md](./INFRASTRUCTURE.md)**.
+
 ## Features
 
 - **Player List**: Browse all players in the database

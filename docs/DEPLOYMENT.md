@@ -2,9 +2,11 @@
 
 This guide covers the easiest ways to host your Berkeley Ping Pong application.
 
+**Production stack (typical):** data lives in **Supabase** (free tier), the web UI runs on **Render** (free tier), **GitHub Actions** runs **weekly** to scrape and import new tournaments, and **FastCron** may ping the Render URL to reduce cold starts from the free web tier. See **[INFRASTRUCTURE.md](./INFRASTRUCTURE.md)** for the full picture.
+
 ## 🚀 Option 1: Render (Recommended - Easiest & Free)
 
-**Render** is the easiest option with a free tier. It automatically detects your Flask app and deploys it.
+**Render** is the easiest option with a free tier (`plan: free` in `render.yaml`). It runs the Flask app with `gunicorn backend.app:app`. The free web service **spins down** after inactivity (first request can be slow to wake).
 
 ### Steps:
 

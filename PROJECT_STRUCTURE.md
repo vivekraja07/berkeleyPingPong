@@ -2,6 +2,17 @@
 
 This document describes the organized folder structure of the Berkeley Ping Pong Round Robin Tournament application.
 
+## Infrastructure (production)
+
+The live setup is intentionally **low-cost**:
+
+- **GitHub Actions** — runs **weekly** (Fridays 08:00 UTC) to **scrape** the latest tournaments from berkeleytabletennis.org and **import** them into the database (`scripts/scheduled_import.py`, workflow under `.github/workflows/`).
+- **Supabase** — database on the **free** tier.
+- **Render** — Flask web app on the **free** tier (cold starts after idle).
+- **FastCron** — optional external HTTP cron to mitigate **free-tier limits** (e.g. keep Render from always sleeping right before traffic).
+
+Full detail: **[docs/INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md)**.
+
 ## Directory Structure
 
 ```
@@ -42,12 +53,14 @@ berkeleyPingPong/
 │
 ├── docs/                   # Documentation
 │   ├── README.md
+│   ├── INFRASTRUCTURE.md   # GitHub Actions, Supabase, Render, FastCron
 │   ├── QUICK_START.md
 │   ├── UI_README.md
 │   ├── DEPLOYMENT.md
 │   ├── QUICK_DEPLOY.md
 │   ├── ROUND_ROBIN_DATABASE.md
-│   └── PUSH_TO_GITHUB.md
+│   └── ...
+├── .github/workflows/      # Weekly scheduled import (see INFRASTRUCTURE.md)
 │
 ├── Procfile                # Heroku/Render deployment config
 ├── render.yaml             # Render deployment config
@@ -76,7 +89,7 @@ berkeleyPingPong/
 - Migration and fix scripts
 
 ### Documentation (`docs/`)
-- All project documentation and guides
+- All project documentation and guides; start with **INFRASTRUCTURE.md** for hosting and automation
 
 ## Running the Application
 

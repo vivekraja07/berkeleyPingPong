@@ -2,7 +2,9 @@
 
 ## Overview
 
-The `scheduled_import.py` script is designed to automatically import new round robin tournaments from the Berkeley Table Tennis website. It's meant to run weekly (e.g., every Friday at midnight) to keep the database up-to-date with the latest tournament results.
+The `scheduled_import.py` script imports new round robin tournaments from the Berkeley Table Tennis website by scraping the results page and processing each tournament. In production it is meant to run **weekly** (Fridays **08:00 UTC** via GitHub Actions—midnight Pacific during PST) so the database stays current.
+
+**Hosting context:** the database is **Supabase** (typically free tier); the scheduled job does not replace the need for a deployed app if you use **Render** or another host—see **[INFRASTRUCTURE.md](./INFRASTRUCTURE.md)** for GitHub Actions, Render, and optional **FastCron**.
 
 ## What It Does
 
@@ -203,19 +205,23 @@ After running a test, verify the results:
 
 ## Production Deployment
 
-For production, you would typically:
+**Primary approach for this repo:** configure **GitHub Actions** (`.github/workflows/scheduled-import.yml`) with `SUPABASE_URL` / `SUPABASE_KEY`—see [GITHUB_ACTIONS_SETUP.md](./GITHUB_ACTIONS_SETUP.md) and [INFRASTRUCTURE.md](./INFRASTRUCTURE.md).
 
-1. **Set up a cron job** (Linux/Mac):
+Alternatives if you do not use GitHub Actions:
+
+1. **Cron on your own server** (Linux/Mac):
    ```bash
    # Run every Friday at midnight PST
    0 0 * * 5 cd /path/to/project && python3 scripts/scheduled_import.py >> logs/import.log 2>&1
    ```
 
-2. **Use a scheduler service** (e.g., Render Cron, GitHub Actions, etc.)
+2. **Another scheduler** (e.g. Render Cron, CI on another provider).
 
-3. **Monitor the exit code** to alert on failures
+3. **Monitor the exit code** to alert on failures (GitHub Actions can open an issue on failure—see workflow).
 
-4. **Set up logging** to track import history
+4. **Logging** — GitHub Actions logs each run; for a local cron, redirect to a log file as above.
+
+**Render / cold starts:** the web app on Render free tier sleeps when idle. **FastCron** (or similar) can HTTP-ping the public URL on a schedule to reduce cold starts; that is separate from this import script.
 
 ## Example Output
 

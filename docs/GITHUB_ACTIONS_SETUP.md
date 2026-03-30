@@ -2,7 +2,9 @@
 
 ## Overview
 
-The scheduled tournament import is now configured to run automatically via GitHub Actions. The workflow runs every Friday at midnight PST (8:00 AM UTC) to import new tournaments.
+The scheduled tournament import runs automatically in **GitHub Actions** on a **weekly** schedule. That job **refreshes data** from the Berkeley Table Tennis site: it **scrapes** tournament links, downloads HTML/PDF results, and imports new tournaments into **Supabase**. The workflow runs **Fridays at 08:00 UTC** (midnight Pacific during PST) and can also be started manually.
+
+For how this fits with **Render** (web UI) and optional **FastCron**, see **[INFRASTRUCTURE.md](./INFRASTRUCTURE.md)**.
 
 ## Setup Instructions
 
@@ -19,7 +21,7 @@ You need to add your Supabase credentials as GitHub Secrets:
 ### 2. Workflow File
 
 The workflow is located at `.github/workflows/scheduled-import.yml` and:
-- Runs every Friday at midnight PST (8:00 AM UTC)
+- Runs every Friday at **08:00 UTC** (intended as end-of-week import; aligns with midnight Pacific when PST is in effect—see cron in the workflow file)
 - Can be manually triggered via the GitHub Actions UI
 - Automatically creates a GitHub issue if the import fails
 

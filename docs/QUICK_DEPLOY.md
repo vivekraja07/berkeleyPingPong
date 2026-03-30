@@ -1,5 +1,7 @@
 # 🚀 Quick Deploy Guide
 
+**Stack reminder:** **Supabase** (DB, free) + **Render** (app, free) + **GitHub Actions** weekly import/scrape + optional **FastCron** pings to ease Render cold starts. Details: [INFRASTRUCTURE.md](./INFRASTRUCTURE.md).
+
 ## Fastest Option: Render (5 minutes)
 
 1. **Push to GitHub** (if not already done)

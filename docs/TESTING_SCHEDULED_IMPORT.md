@@ -1,5 +1,7 @@
 # Quick Testing Guide for Scheduled Import
 
+In production, the same import path runs **weekly** via **GitHub Actions** into **Supabase**; optional **FastCron** + **Render** are described in **[INFRASTRUCTURE.md](./INFRASTRUCTURE.md)**.
+
 ## Quick Start
 
 ### 1. Test Database Connection
