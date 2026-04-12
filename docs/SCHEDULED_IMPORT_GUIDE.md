@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `scheduled_import.py` script imports new round robin tournaments from the Berkeley Table Tennis website by scraping the results page and processing each tournament. In production it is meant to run **weekly** (Fridays **08:00 UTC** via GitHub Actions—midnight Pacific during PST) so the database stays current.
+The `scheduled_import.py` script imports new round robin tournaments from the Berkeley Table Tennis website by scraping the results page and processing each tournament. In production it is meant to run **weekly** (Saturdays **09:00 UTC** via GitHub Actions—1:00 AM Pacific during PST, 2:00 AM during PDT) so the database stays current.
 
 **Hosting context:** the database is **Supabase** (typically free tier); the scheduled job does not replace the need for a deployed app if you use **Render** or another host—see **[INFRASTRUCTURE.md](./INFRASTRUCTURE.md)** for GitHub Actions, Render, and optional **FastCron**.
 
@@ -211,7 +211,7 @@ Alternatives if you do not use GitHub Actions:
 
 1. **Cron on your own server** (Linux/Mac):
    ```bash
-   # Run every Friday at midnight PST
+   # Run every Saturday ~1 AM Pacific (adjust for your TZ / DST)
    0 0 * * 5 cd /path/to/project && python3 scripts/scheduled_import.py >> logs/import.log 2>&1
    ```
 

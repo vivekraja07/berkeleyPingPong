@@ -2,7 +2,7 @@
 """
 Scheduled Tournament Import Script
 Imports only new tournaments that haven't been parsed yet.
-Designed to run weekly (e.g., every Friday at midnight PST).
+Designed to run weekly (e.g., Saturday ~1 AM Pacific via GitHub Actions; see workflow cron).
 """
 import sys
 import os

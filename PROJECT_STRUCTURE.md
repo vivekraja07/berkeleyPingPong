@@ -6,7 +6,7 @@ This document describes the organized folder structure of the Berkeley Ping Pong
 
 The live setup is intentionally **low-cost**:
 
-- **GitHub Actions** — runs **weekly** (Fridays 08:00 UTC) to **scrape** the latest tournaments from berkeleytabletennis.org and **import** them into the database (`scripts/scheduled_import.py`, workflow under `.github/workflows/`).
+- **GitHub Actions** — runs **weekly** (Saturdays 09:00 UTC) to **scrape** the latest tournaments from berkeleytabletennis.org and **import** them into the database (`scripts/scheduled_import.py`, workflow under `.github/workflows/`).
 - **Supabase** — database on the **free** tier.
 - **Render** — Flask web app on the **free** tier (cold starts after idle).
 - **FastCron** — optional external HTTP cron to mitigate **free-tier limits** (e.g. keep Render from always sleeping right before traffic).

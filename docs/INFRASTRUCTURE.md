@@ -14,7 +14,7 @@ This project is built to run on **free tiers** and a small amount of external sc
 ## Weekly data refresh (GitHub Actions)
 
 - **Workflow:** `.github/workflows/scheduled-import.yml`
-- **Schedule:** Cron **`0 8 * * 5`** (Fridays **08:00 UTC**). That matches **midnight Pacific** during standard time (PST); during daylight time (PDT) it is **01:00 local**. You can also run it manually (**Actions → Scheduled Tournament Import → Run workflow**).
+- **Schedule:** Cron **`0 9 * * 6`** (Saturdays **09:00 UTC**). GitHub Actions only supports **UTC**, so this targets **1:00 AM Pacific when PST** is in effect; during **PDT** the same run is **2:00 AM local** (a one-hour shift when clocks change—expected for a fixed UTC schedule). You can also run it manually (**Actions → Scheduled Tournament Import → Run workflow**).
 - **What it does:** Executes the scheduled import: discovers tournament links, pulls HTML/PDFs, validates, and writes to Supabase. Failures can open a GitHub issue (see the workflow).
 - **Secrets:** `SUPABASE_URL` and `SUPABASE_KEY` must be set (repository secrets and/or the `supabase` GitHub Environment as configured in the workflow).
 
